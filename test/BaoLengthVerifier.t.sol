@@ -146,6 +146,53 @@ contract BaoLengthVerifierTest is Test {
         assertFalse(_verify(p, uint64(length + 1)), "reject length+1");
     }
 
+    // ------------------------------------------------------------------
+    // Overclaim predicate: only claimed > actual is actionable.
+    // ------------------------------------------------------------------
+    function _overclaim(Proof memory p, uint64 claimed) internal view returns (bool) {
+        return h.proveOverclaim(p.root, claimed, p.length, p.finalChunk, p.rightEdge);
+    }
+
+    function test_Overclaim_DetectedOnlyWhenClaimedGreater() public {
+        Proof memory p = _prove(3000, 5); // true length 3000
+        // Overclaims (claimed > actual): proven.
+        assertTrue(_overclaim(p, 3001), "overclaim by 1");
+        assertTrue(_overclaim(p, 4096), "overclaim to next bucket");
+        assertTrue(_overclaim(p, 1000000), "large overclaim");
+        // Truthful and underclaims: pass (false).
+        assertFalse(_overclaim(p, 3000), "truthful claim passes");
+        assertFalse(_overclaim(p, 2999), "underclaim passes");
+        assertFalse(_overclaim(p, 0), "underclaim passes");
+    }
+
+    // A malicious challenger cannot frame an honest signer by claiming a SMALLER
+    // actualLength than the truth: the witness won't verify against `root`.
+    function test_Overclaim_CannotFrameHonestSigner() public {
+        // Honest signer's file & signed length: 5000 bytes (5 chunks).
+        Proof memory truth = _prove(5000, 11);
+        uint64 signed = 5000;
+
+        // Challenger lies that actual = 4000 using the REAL 5000-byte witness.
+        // claimed(5000) > actual(4000) so it enters the proof branch, but the
+        // witness reconstructs the 5000-root, not a 4000-root -> rejected.
+        assertFalse(
+            h.proveOverclaim(truth.root, signed, 4000, truth.finalChunk, truth.rightEdge), "cannot fake smaller actual"
+        );
+
+        // Even a genuine smaller-file witness for a DIFFERENT root doesn't help:
+        Proof memory smaller = _prove(4000, 12); // different data
+        assertFalse(
+            h.proveOverclaim(truth.root, signed, 4000, smaller.finalChunk, smaller.rightEdge), "wrong-root witness"
+        );
+    }
+
+    // Overclaim with an invalid witness (tampered final chunk) must not pass.
+    function test_Overclaim_InvalidWitnessRejected() public {
+        Proof memory p = _prove(3000, 13);
+        p.finalChunk[0] = bytes1(uint8(p.finalChunk[0]) ^ 0x01); // corrupt one byte
+        assertFalse(_overclaim(p, 5000), "invalid witness rejected");
+    }
+
     // sibling-count / numChunks geometry sanity vs the reference expectations.
     function test_Geometry() public pure {
         assertEq(BaoLengthVerifier.numChunks(0), 1);

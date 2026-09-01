@@ -111,6 +111,29 @@ on-chain is to supply those ≤1024 bytes.
 
 ## 3. The sound verifier
 
+Entry point (this deployment targets **overclaims only** — a signer claiming
+*more* bytes than exist):
+
+```solidity
+function proveOverclaim(
+    bytes32 root,
+    uint64 claimedLength,   // the signed / challenged length
+    uint64 actualLength,    // the true length, established by the witness
+    bytes calldata finalChunk,
+    bytes32[] calldata rightEdge
+) external pure returns (bool overclaimProven);
+```
+
+`proveOverclaim` returns `true` **only** when `claimedLength > actualLength`
+(an overclaim) *and* the witness proves the true length is `actualLength`.
+Truthful claims and underclaims (`claimedLength <= actualLength`) "pass" —
+they return `false` without even requiring a valid witness, because underclaims
+are out of scope. Framing an honest signer is impossible: proving a *smaller*
+`actualLength` than the truth needs a witness the root does not commit to (a
+BLAKE3 collision). See `test_Overclaim_*`.
+
+It is a thin wrapper over the exact-length primitive:
+
 ```solidity
 function verifyBaoLength(
     bytes32 root,

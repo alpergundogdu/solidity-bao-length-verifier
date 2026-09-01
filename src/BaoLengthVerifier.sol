@@ -90,6 +90,40 @@ library BaoLengthVerifier {
         return cv == root;
     }
 
+    /// @notice Overclaim fraud predicate. Proves that a signed `claimedLength`
+    ///         is an OVERCLAIM, i.e. the true length is strictly smaller.
+    ///
+    /// @dev We only act on overclaims (`claimedLength > actualLength`). Truthful
+    ///      claims and underclaims (`claimedLength <= actualLength`) "pass":
+    ///      the function returns false without requiring a valid witness, since
+    ///      they are out of scope here.
+    ///
+    ///      Soundness note: the true-length binding lives entirely in
+    ///      verifyBaoLength (the final chunk is recomputed with counter = N-1).
+    ///      A malicious challenger therefore cannot frame an honest signer by
+    ///      claiming a smaller `actualLength` than the real one -- that would
+    ///      require a valid witness for a length the root does not commit to,
+    ///      i.e. a BLAKE3 collision.
+    ///
+    /// @param root          Committed BLAKE3/bao root.
+    /// @param claimedLength The signed / asserted length being challenged.
+    /// @param actualLength  The true length, established by the witness below.
+    /// @param finalChunk    Final chunk bytes for `actualLength` (<= 1024).
+    /// @param rightEdge     Right-edge sibling CVs for `actualLength`.
+    /// @return overclaimProven True iff `claimedLength > actualLength` AND the
+    ///         witness proves the true length is `actualLength`.
+    function proveOverclaim(
+        bytes32 root,
+        uint64 claimedLength,
+        uint64 actualLength,
+        bytes calldata finalChunk,
+        bytes32[] calldata rightEdge
+    ) internal pure returns (bool overclaimProven) {
+        // Only claimed > actual is actionable; everything else passes.
+        if (claimedLength <= actualLength) return false;
+        return verifyBaoLength(root, actualLength, finalChunk, rightEdge);
+    }
+
     /// @notice numChunks = ceil(length/1024), with empty input = 1 chunk.
     function numChunks(uint64 length) internal pure returns (uint256) {
         if (length == 0) return 1;
@@ -299,6 +333,16 @@ contract BaoLengthVerifierHarness {
         bytes32[] calldata rightEdge
     ) external pure returns (bool) {
         return BaoLengthVerifier.verifyBaoLength(root, actualLength, finalChunk, rightEdge);
+    }
+
+    function proveOverclaim(
+        bytes32 root,
+        uint64 claimedLength,
+        uint64 actualLength,
+        bytes calldata finalChunk,
+        bytes32[] calldata rightEdge
+    ) external pure returns (bool) {
+        return BaoLengthVerifier.proveOverclaim(root, claimedLength, actualLength, finalChunk, rightEdge);
     }
 
     function siblingCount(uint256 n) external pure returns (uint256) {
