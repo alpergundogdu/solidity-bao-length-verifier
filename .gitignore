@@ -3,3 +3,5 @@ cache/
 .venv/
 vectors.json
 broadcast/
+__pycache__/
+*.pyc
