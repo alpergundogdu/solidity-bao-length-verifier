@@ -1,0 +1,25 @@
+[package]
+name = "bao-length-prover"
+version = "0.1.0"
+edition = "2021"
+description = "Off-chain proof generator for BaoLengthVerifier.sol, reusing the official BLAKE3 crate (hazmat tree API)."
+
+[lib]
+name = "bao_length_prover"
+path = "src/lib.rs"
+
+[[bin]]
+name = "prove"
+path = "src/bin/prove.rs"
+
+[[bin]]
+name = "prove-batch"
+path = "src/bin/prove_batch.rs"
+
+[dependencies]
+blake3 = "1.8"
+ethabi = "18"
+ethereum-types = "0.14"
+
+[profile.release]
+opt-level = 3

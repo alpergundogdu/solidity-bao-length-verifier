@@ -25,11 +25,10 @@ contract GasBenchTest is Test {
     }
 
     function _prove(uint256 length, uint256 seed) internal returns (Proof memory p) {
-        string[] memory cmd = new string[](4);
-        cmd[0] = "./.venv/bin/python";
-        cmd[1] = "script/prove.py";
-        cmd[2] = vm.toString(length);
-        cmd[3] = vm.toString(seed);
+        string[] memory cmd = new string[](3);
+        cmd[0] = "prover/target/release/prove";
+        cmd[1] = vm.toString(length);
+        cmd[2] = vm.toString(seed);
         bytes memory res = vm.ffi(cmd);
         (bytes32 root, uint64 len, bytes memory fc, bytes32[] memory edge) =
             abi.decode(res, (bytes32, uint64, bytes, bytes32[]));

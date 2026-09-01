@@ -5,3 +5,4 @@ vectors.json
 broadcast/
 __pycache__/
 *.pyc
+prover/target/

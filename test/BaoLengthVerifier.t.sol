@@ -25,11 +25,10 @@ contract BaoLengthVerifierTest is Test {
     }
 
     function _prove(uint256 length, uint256 seed) internal returns (Proof memory p) {
-        string[] memory cmd = new string[](4);
-        cmd[0] = "./.venv/bin/python";
-        cmd[1] = "script/prove.py";
-        cmd[2] = vm.toString(length);
-        cmd[3] = vm.toString(seed);
+        string[] memory cmd = new string[](3);
+        cmd[0] = "prover/target/release/prove";
+        cmd[1] = vm.toString(length);
+        cmd[2] = vm.toString(seed);
         bytes memory res = vm.ffi(cmd);
         (bytes32 root, uint64 len, bytes memory fc, bytes32[] memory edge) =
             abi.decode(res, (bytes32, uint64, bytes, bytes32[]));
@@ -121,12 +120,11 @@ contract BaoLengthVerifierTest is Test {
     // ------------------------------------------------------------------
     function test_Differential_Batch() public {
         uint256 count = 400;
-        string[] memory cmd = new string[](5);
-        cmd[0] = "./.venv/bin/python";
-        cmd[1] = "script/prove_batch.py";
-        cmd[2] = vm.toString(count);
-        cmd[3] = vm.toString(uint256(1234));
-        cmd[4] = vm.toString(uint256(40000));
+        string[] memory cmd = new string[](4);
+        cmd[0] = "prover/target/release/prove-batch";
+        cmd[1] = vm.toString(count);
+        cmd[2] = vm.toString(uint256(1234));
+        cmd[3] = vm.toString(uint256(40000));
         bytes memory res = vm.ffi(cmd);
         (uint64[] memory lens, bytes32[] memory roots, bytes[] memory finals, bytes32[][] memory edges) =
             abi.decode(res, (uint64[], bytes32[], bytes[], bytes32[][]));

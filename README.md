@@ -13,16 +13,28 @@ signed `(root, claimed_total_bytes)` when `claimed_total_bytes` is false.
 
 ```
 src/BaoLengthVerifier.sol      the verifier (Yul BLAKE3 compression) + external harness
-script/blake3_tree.py          audited BLAKE3 tree reference (ground truth)
-script/prove.py                proof generator + Foundry FFI oracle (one length)
-script/prove_batch.py          batch oracle for randomized differential testing
+prover/                        Rust proof generator (reuses the official blake3 hazmat tree API)
+  src/lib.rs                     make_proof(): root, final chunk, right-edge CVs
+  src/bin/prove.rs               Foundry FFI oracle (one length)
+  src/bin/prove_batch.rs         batch oracle for randomized differential testing
+script/blake3_tree.py          independent BLAKE3 tree reference (2nd oracle, hand-derived)
 script/counterexample.py       proves the byte-free premise is unsound
 script/gen_vectors.py          writes vectors.json for inspection
 test/BaoLengthVerifier.t.sol   correctness, adversarial, security, differential
 test/GasBench.t.sol            gas benchmarks
 ```
 
-Run: `python3 -m venv .venv && ./.venv/bin/pip install blake3 eth_abi && forge test -vv`
+**Run:**
+
+```bash
+cargo build --release --manifest-path prover/Cargo.toml   # build the FFI oracle
+forge test -vv
+```
+
+The Foundry tests shell out (FFI) to the compiled Rust binaries in
+`prover/target/release/`, so the prover must be built first. The Python scripts
+are a second, independently written oracle (and host the soundness
+counterexample); they are not required to run the test suite.
 
 ---
 
@@ -184,11 +196,13 @@ BLAKE3 empty hash `af1349b9…`, which validates `IV`, chunk compression, the
 ## 7. Differential testing
 
 - `test_Differential_Batch`: 400 random lengths in `[0, 40000]` proven by the
-  reference and verified on-chain; each also rejected at `length ± 1`.
+  Rust generator and verified on-chain; each also rejected at `length ± 1`.
 - `testFuzz_Differential`: fuzzed lengths in `[0, 200000]`.
-- The reference (`blake3_tree.py`) is itself cross-checked against the official
-  `blake3` Rust binding on all boundary lengths + random inputs, so the chain of
-  trust is **official blake3 → python reference → Solidity**.
+- The Rust generator computes subtree CVs with the **official `blake3` crate's
+  `hazmat` tree API** and self-checks that its right edge reconstructs
+  `blake3::hash(data)`. So the chain of trust is **official blake3 (hazmat) →
+  Solidity**. The Python `blake3_tree.py` is a second, independently derived
+  reference (cross-checked against the `blake3` package) for defense in depth.
 
 ## 8. Gas (from `test/GasBench.t.sol`)
 
